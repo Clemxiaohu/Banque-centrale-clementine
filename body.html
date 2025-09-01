@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banque Clémentine - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .bg-clementine {
+            background-color: #ffb74d; /* Une couleur orangée pour la clémentine */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="login-page" class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
+        <h1 class="text-3xl font-bold mb-4 text-clementine">Banque Clémentine</h1>
+        <p class="text-gray-600 mb-6">Entrez votre Passeport et votre mot de passe</p>
+        <div class="space-y-4">
+            <input id="passport-id-input" type="text" placeholder="Numéro de Passeport" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-clementine">
+            <input id="password-input" type="password" placeholder="Mot de passe (pour l'admin)" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-clementine">
+            <button id="login-button" class="w-full bg-clementine text-white p-3 rounded-lg font-bold hover:bg-orange-500 transition-colors">
+                Accéder à mon compte
+            </button>
+        </div>
+        <p id="error-message" class="mt-4 text-red-500 hidden"></p>
+    </div>
+
+    <div id="dashboard-page" class="hidden w-full max-w-5xl p-8 rounded-xl shadow-2xl bg-white grid lg:grid-cols-2 gap-8">
+        
+        <div class="flex flex-col items-center p-6 bg-gray-100 rounded-xl">
+            <h2 class="text-2xl font-bold mb-4 text-clementine">Mon Compte</h2>
+            <div class="text-4xl font-bold mb-4">
+                <span id="personal-balance">0</span> <span class="text-orange-400">Credix</span>
+            </div>
+            <p class="text-sm text-gray-500">Passeport : <span id="personal-passport"></span></p>
+
+            <div id="user-controls" class="mt-6 w-full">
+                <div class="flex items-center space-x-2 mb-4">
+                    <input id="amount-input" type="number" value="100" class="w-2/3 p-2 border rounded-lg">
+                    <button id="add-button" class="w-1/3 bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition-colors">Ajouter</button>
+                </div>
+                <button id="subtract-button" class="w-full bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors">Retirer</button>
+            </div>
+            
+            <button id="logout-button" class="mt-8 text-sm text-gray-500 hover:text-gray-900 transition-colors">Déconnexion</button>
+        </div>
+
+        <div class="p-6 bg-gray-100 rounded-xl">
+            <h2 class="text-2xl font-bold mb-4 text-clementine">Classement des Citoyens</h2>
+            <div id="leaderboard" class="space-y-2 max-h-96 overflow-y-auto">
+                </div>
+        </div>
+
+        <div id="admin-panel" class="lg:col-span-2 hidden p-6 bg-gray-200 rounded-xl mt-8">
+            <h2 class="text-2xl font-bold mb-4 text-blue-800">Panneau d'Administration</h2>
+
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">Créer un nouveau compte</h3>
+                <div class="flex items-center space-x-2">
+                    <input id="create-passport" type="text" placeholder="Nouveau passeport" class="w-1/3 p-2 border rounded-lg">
+                    <input id="create-balance" type="number" value="500" placeholder="Solde initial" class="w-1/3 p-2 border rounded-lg">
+                    <button id="create-account-button" class="w-1/3 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">Créer</button>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-semibold mb-2">Gérer un compte existant</h3>
+                <div class="flex items-center space-x-2">
+                    <input id="target-passport" type="text" placeholder="Passeport du citoyen" class="w-1/3 p-2 border rounded-lg">
+                    <input id="admin-amount" type="number" value="100" placeholder="Montant" class="w-1/3 p-2 border rounded-lg">
+                    <button id="admin-add-button" class="w-1/6 bg-green-500 text-white p-2 rounded-lg hover:bg-green-600">Ajouter</button>
+                    <button id="admin-subtract-button" class="w-1/6 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">Retirer</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // La configuration Firebase est désormais directement intégrée
+        const firebaseConfig = {
+            apiKey: "AIzaSyANuDNJEiPPzBqmmZIhG4Gklyqzt6OX0Lw",
+            authDomain: "banque-clementine.firebaseapp.com",
+            projectId: "banque-clementine",
+            storageBucket: "banque-clementine.firebasestorage.app",
+            messagingSenderId: "191578816921",
+            appId: "1:191578816921:web:2cd3941388d6c124129308",
+            measurementId: "G-699M789NPK"
+        };
+        
+        const ADMIN_ID = "00001";
+        const ADMIN_PASSWORD = "Le poulet c'est trop bon !";
+
+        // Initialisation de Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Récupération des éléments du DOM
+        const loginPage = document.getElementById('login-page');
+        const dashboardPage = document.getElementById('dashboard-page');
+        const passportIdInput = document.getElementById('passport-id-input');
+        const passwordInput = document.getElementById('password-input');
+        const loginButton = document.getElementById('login-button');
+        const personalBalanceSpan = document.getElementById('personal-balance');
+        const personalPassportSpan = document.getElementById('personal-passport');
+        const amountInput = document.getElementById('amount-input');
+        const addButton = document.getElementById('add-button');
+        const subtractButton = document.getElementById('subtract-button');
+        const leaderboardDiv = document.getElementById('leaderboard');
+        const logoutButton = document.getElementById('logout-button');
+        const errorMessage = document.getElementById('error-message');
+        const adminPanel = document.getElementById('admin-panel');
+        const userControls = document.getElementById('user-controls');
+        
+        const createPassportInput = document.getElementById('create-passport');
+        const createBalanceInput = document.getElementById('create-balance');
+        const createAccountButton = document.getElementById('create-account-button');
+        const targetPassportInput = document.getElementById('target-passport');
+        const adminAmountInput = document.getElementById('admin-amount');
+        const adminAddButton = document.getElementById('admin-add-button');
+        const adminSubtractButton = document.getElementById('admin-subtract-button');
+
+        let currentUserId = null;
+
+        function showDashboard(userId, isAdmin) {
+            currentUserId = userId;
+            personalPassportSpan.textContent = userId;
+            loginPage.classList.add('hidden');
+            dashboardPage.classList.remove('hidden');
+
+            if (isAdmin) {
+                adminPanel.classList.remove('hidden');
+                userControls.classList.add('hidden');
+            } else {
+                adminPanel.classList.add('hidden');
+                userControls.classList.remove('hidden');
+            }
+
+            db.collection("citizens").doc(currentUserId).onSnapshot(doc => {
+                if (doc.exists) {
+                    personalBalanceSpan.textContent = doc.data().balance.toFixed(2);
+                }
+            });
+        }
+
+        function updateLeaderboard(citizens) {
+            leaderboardDiv.innerHTML = '';
+            citizens.sort((a, b) => b.balance - a.balance);
+            
+            citizens.forEach(citizen => {
+                const isCurrentUser = citizen.passportId === currentUserId;
+                const element = document.createElement('div');
+                element.className = `flex justify-between items-center p-3 rounded-lg ${isCurrentUser ? 'bg-orange-200 font-bold' : 'bg-white'}`;
+                element.innerHTML = `
+                    <span class="text-gray-800">${citizen.passportId}</span>
+                    <span class="${isCurrentUser ? 'text-orange-600' : 'text-gray-800'}">${citizen.balance.toFixed(2)} Credix</span>
+                `;
+                leaderboardDiv.appendChild(element);
+            });
+        }
+
+        loginButton.addEventListener('click', async () => {
+            const passportId = passportIdInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!passportId) {
+                errorMessage.textContent = 'Veuillez entrer un numéro de passeport.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (passportId === ADMIN_ID && password === ADMIN_PASSWORD) {
+                showDashboard(passportId, true);
+                localStorage.setItem('currentUserId', passportId);
+                errorMessage.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const docRef = db.collection("citizens").doc(passportId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    showDashboard(passportId, false);
+                    localStorage.setItem('currentUserId', passportId);
+                    errorMessage.classList.add('hidden');
+                } else {
+                    errorMessage.textContent = 'Passeport introuvable. Aucun compte n\'existe avec ce numéro.';
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error("Erreur de connexion :", e);
+                errorMessage.textContent = 'Erreur de connexion. Veuillez réessayer.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+
+        addButton.addEventListener('click', async () => {
+            const amount = parseFloat(amountInput.value);
+            if (!isNaN(amount) && currentUserId) {
+                const docRef = db.collection("citizens").doc(currentUserId);
+                await docRef.update({
+                    balance: firebase.firestore.FieldValue.increment(amount)
+                });
+            }
+        });
+
+        subtractButton.addEventListener('click', async () => {
+            const amount = parseFloat(amountInput.value);
+            if (!isNaN(amount) && currentUserId) {
+                const docRef = db.collection("citizens").doc(currentUserId);
+                const doc = await docRef.get();
+                if (doc.exists && doc.data().balance - amount >= 0) {
+                    await docRef.update({
+                        balance: firebase.firestore.FieldValue.increment(-amount)
+                    });
+                } else {
+                    alert("Solde insuffisant !");
+                }
+            }
+        });
+        
+        logoutButton.addEventListener('click', () => {
+            localStorage.removeItem('currentUserId');
+            dashboardPage.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+            passportIdInput.value = '';
+            passwordInput.value = '';
+        });
+
+        createAccountButton.addEventListener('click', async () => {
+            const newPassport = createPassportInput.value.trim();
+            const initialBalance = parseFloat(createBalanceInput.value);
+
+            if (!newPassport || isNaN(initialBalance)) {
+                alert("Veuillez entrer un passeport et un solde valides.");
+                return;
+            }
+            if(newPassport === ADMIN_ID) {
+                alert("Impossible de créer un compte avec le passeport de l'admin.");
+                return;
+            }
+            
+            try {
+                const docRef = db.collection("citizens").doc(newPassport);
+                const doc = await docRef.get();
+                if (doc.exists) {
+                    alert("Ce passeport existe déjà !");
+                } else {
+                    await docRef.set({ balance: initialBalance });
+                    alert(`Compte ${newPassport} créé avec ${initialBalance} Credix.`);
+                    createPassportInput.value = '';
+                    createBalanceInput.value = '500';
+                }
+            } catch (e) {
+                console.error("Erreur de création de compte :", e);
+                alert("Erreur lors de la création du compte.");
+            }
+        });
+
+        adminAddButton.addEventListener('click', async () => {
+            const targetPassport = targetPassportInput.value.trim();
+            const amount = parseFloat(adminAmountInput.value);
+            if (!targetPassport || isNaN(amount)) {
+                alert("Veuillez entrer un passeport et un montant valides.");
+                return;
+            }
+            
+            try {
+                const docRef = db.collection("citizens").doc(targetPassport);
+                await docRef.update({
+                    balance: firebase.firestore.FieldValue.increment(amount)
+                });
+                alert(`${amount} Credix ajoutés au compte ${targetPassport}.`);
+            } catch (e) {
+                console.error("Erreur :", e);
+                alert("Erreur lors de la mise à jour du compte.");
+            }
+        });
+
+        adminSubtractButton.addEventListener('click', async () => {
+            const targetPassport = targetPassportInput.value.trim();
+            const amount = parseFloat(adminAmountInput.value);
+            if (!targetPassport || isNaN(amount)) {
+                alert("Veuillez entrer un passeport et un montant valides.");
+                return;
+            }
+            
+            try {
+                const docRef = db.collection("citizens").doc(targetPassport);
+                const doc = await docRef.get();
+                if (doc.exists) {
+                    await docRef.update({
+                        balance: firebase.firestore.FieldValue.increment(-amount)
+                    });
+                    alert(`${amount} Credix retirés du compte ${targetPassport}.`);
+                } else {
+                    alert("Passeport introuvable.");
+                }
+            } catch (e) {
+                console.error("Erreur :", e);
+                alert("Erreur lors de la mise à jour du compte.");
+            }
+        });
+
+        db.collection("citizens").onSnapshot(snapshot => {
+            const citizens = [];
+            snapshot.forEach(doc => {
+                citizens.push({
+                    passportId: doc.id,
+                    ...doc.data()
+                });
+            });
+            updateLeaderboard(citizens);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const storedUserId = localStorage.getItem('currentUserId');
+            if (storedUserId) {
+                showDashboard(storedUserId, storedUserId === ADMIN_ID);
+            }
+        });
+    </script>
+</body>
+</html>
